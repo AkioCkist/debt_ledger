@@ -1,0 +1,29 @@
+# Flutter/Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+*.iml
+
+# Env / secrets - KHÔNG commit file thật
+.env
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# macOS
+.DS_Store
+
+# Platform build artifacts (chưa được tạo sẵn, sẽ sinh ra khi flutter create bổ sung platform)
+android/
+ios/
+macos/
+linux/
+windows/
+web/
