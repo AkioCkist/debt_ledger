@@ -20,6 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _loading = false;
   String? _error;
   bool _obscure = true;
+  bool _rememberLogin = true;
 
   @override
   void dispose() {
@@ -38,6 +39,7 @@ class _LoginScreenState extends State<LoginScreen> {
       await _authService.signIn(
         email: _emailCtrl.text.trim(),
         password: _passwordCtrl.text,
+        rememberLogin: _rememberLogin,
       );
       // AuthGate sẽ tự chuyển màn hình khi trạng thái đăng nhập thay đổi.
     } on AuthException catch (e) {
@@ -134,6 +136,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       }
                       return null;
                     },
+                  ),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: _rememberLogin,
+                    onChanged: _loading
+                        ? null
+                        : (value) {
+                            if (value != null) {
+                              setState(() => _rememberLogin = value);
+                            }
+                          },
+                    title: const Text('Ghi nhớ đăng nhập'),
+                    subtitle: const Text('Giữ đăng nhập cho đến khi đăng xuất.'),
+                    controlAffinity: ListTileControlAffinity.leading,
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 14),

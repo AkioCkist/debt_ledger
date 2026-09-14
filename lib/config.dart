@@ -1,10 +1,13 @@
-/// Cấu hình Supabase, truyền vào lúc build/run bằng --dart-define-from-file
-/// Xem README.md để biết cách tạo file .env
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+/// Cấu hình Supabase, ưu tiên giá trị trong .env và hỗ trợ --dart-define.
 class AppConfig {
-  static const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-  static const String supabaseAnonKey = String.fromEnvironment(
-    'SUPABASE_ANON_KEY',
-  );
+  static String get supabaseUrl =>
+      dotenv.maybeGet('SUPABASE_URL') ??
+      const String.fromEnvironment('SUPABASE_URL');
+  static String get supabaseAnonKey =>
+      dotenv.maybeGet('SUPABASE_ANON_KEY') ??
+      const String.fromEnvironment('SUPABASE_ANON_KEY');
 
   static bool get isConfigured =>
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;

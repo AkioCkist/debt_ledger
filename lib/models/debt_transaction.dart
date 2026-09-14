@@ -34,6 +34,14 @@ class DebtTransaction {
   final DateTime createdAt;
   final DateTime? respondedAt;
 
+  /// Lần thay đổi gần nhất, do trigger phía database ghi.
+  /// Rơi về [createdAt] nếu database chưa chạy migration.
+  final DateTime updatedAt;
+
+  /// Số lần bản ghi bị UPDATE, do trigger phía database ghi.
+  /// Bằng 1 với dòng mới tạo; bằng 0 nghĩa là database chưa chạy migration.
+  final int version;
+
   const DebtTransaction({
     required this.id,
     required this.createdBy,
@@ -44,9 +52,15 @@ class DebtTransaction {
     required this.status,
     required this.createdAt,
     this.respondedAt,
-  });
+    DateTime? updatedAt,
+    this.version = 0,
+  }) : updatedAt = updatedAt ?? createdAt;
 
   factory DebtTransaction.fromMap(Map<String, dynamic> map) {
+    final createdAt = DateTime.parse(map['created_at'] as String).toLocal();
+    final respondedAt = map['responded_at'];
+    final updatedAt = map['updated_at'];
+
     return DebtTransaction(
       id: map['id'] as String,
       createdBy: map['created_by'] as String,
@@ -55,10 +69,12 @@ class DebtTransaction {
       amount: (map['amount'] as num),
       description: (map['description'] as String?) ?? '',
       status: TxStatus.fromString(map['status'] as String),
-      createdAt: DateTime.parse(map['created_at'] as String).toLocal(),
-      respondedAt: map['responded_at'] != null
-          ? DateTime.parse(map['responded_at'] as String).toLocal()
-          : null,
+      createdAt: createdAt,
+      respondedAt:
+          respondedAt != null ? DateTime.parse(respondedAt as String).toLocal() : null,
+      updatedAt:
+          updatedAt != null ? DateTime.parse(updatedAt as String).toLocal() : createdAt,
+      version: (map['version'] as num?)?.toInt() ?? 0,
     );
   }
 

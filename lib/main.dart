@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app.dart';
 import 'config.dart';
+import 'services/auth_storage.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await initializeDateFormatting('vi_VN', null);
+  await dotenv.load(isOptional: true);
 
   if (!AppConfig.isConfigured) {
     runApp(const _MissingConfigApp());
@@ -18,6 +21,9 @@ Future<void> main() async {
   await Supabase.initialize(
     url: AppConfig.supabaseUrl,
     anonKey: AppConfig.supabaseAnonKey,
+    authOptions: FlutterAuthClientOptions(
+      localStorage: RememberLoginStorage.instance,
+    ),
   );
 
   runApp(const DebtLedgerApp());

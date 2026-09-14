@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'auth_storage.dart';
+
 class AuthService {
   final SupabaseClient _client = Supabase.instance.client;
 
@@ -7,8 +9,13 @@ class AuthService {
 
   Stream<AuthState> get authStateChanges => _client.auth.onAuthStateChange;
 
-  Future<void> signIn({required String email, required String password}) {
-    return _client.auth.signInWithPassword(email: email, password: password);
+  Future<void> signIn({
+    required String email,
+    required String password,
+    required bool rememberLogin,
+  }) async {
+    await RememberLoginStorage.instance.setRememberLogin(rememberLogin);
+    await _client.auth.signInWithPassword(email: email, password: password);
   }
 
   Future<void> signOut() {
