@@ -27,3 +27,5 @@ macos/
 linux/
 windows/
 web/
+
+upload-keystore.jks
