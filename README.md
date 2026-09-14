@@ -193,6 +193,21 @@ flutter run
 
 Chọn thiết bị / emulator / Chrome khi được hỏi. Đăng nhập bằng 1 trong 2 tài khoản đã tạo ở Bước 2 để kiểm tra; mở thêm một trình giả lập/thiết bị khác (hoặc Chrome + mobile emulator song song) rồi đăng nhập tài khoản còn lại để test luồng gửi - xác nhận hai chiều.
 
+### Đổi icon ứng dụng
+
+Ảnh nguồn của icon nằm tại `assets/icon/icon.png`. Sau khi thay ảnh, chạy:
+
+```bash
+flutter pub get
+flutter pub run flutter_launcher_icons
+flutter clean
+flutter build apk --dart-define-from-file=.env
+```
+
+Lệnh `flutter_launcher_icons` sẽ tạo icon cho Android, iOS, web, Windows và macOS
+theo cấu hình trong `pubspec.yaml`. Nếu thiết bị vẫn hiển thị icon cũ, hãy gỡ ứng
+dụng khỏi thiết bị/emulator rồi cài lại bản APK mới để xoá cache icon của launcher.
+
 ### Build bản release
 
 ```bash
