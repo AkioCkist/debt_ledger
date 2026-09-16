@@ -35,6 +35,14 @@ class AuthService {
     );
   }
 
+  /// Supabase báo user đã xác nhận email hay chưa.
+  ///
+  /// Lưu ý: khi project **tắt** "Confirm email" thì GoTrue đóng dấu
+  /// `email_confirmed_at` ngay lúc đăng ký, nên hàm này trả `true` — không
+  /// phân biệt được. Vì vậy đây chỉ là chốt phòng ngừa, cấu hình đúng ở
+  /// Dashboard vẫn là điều kiện bắt buộc.
+  static bool isEmailConfirmed(User user) => user.emailConfirmedAt != null;
+
   Future<void> signOut() {
     return _client.auth.signOut();
   }

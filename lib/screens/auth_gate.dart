@@ -16,6 +16,16 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   final _authService = AuthService();
 
+  /// Chặn phiên của tài khoản chưa xác nhận email: đá ra ngay thay vì mở sảnh.
+  ///
+  /// Không đăng xuất được ngay trong `build` (sẽ bắn sự kiện auth giữa lúc
+  /// dựng cây), nên hẹn sang frame sau.
+  void _rejectUnconfirmedSession() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _authService.signOut();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<AuthState>(
@@ -27,6 +37,10 @@ class _AuthGateState extends State<AuthGate> {
       builder: (context, snapshot) {
         final session = snapshot.data?.session;
         if (session != null) {
+          if (!AuthService.isEmailConfirmed(session.user)) {
+            _rejectUnconfirmedSession();
+            return const LoginScreen();
+          }
           // key theo user id để rebuild lại toàn bộ cây (sảnh, danh bạ) khi
           // đổi tài khoản
           return LobbyScreen(key: ValueKey(session.user.id));

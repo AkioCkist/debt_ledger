@@ -186,8 +186,12 @@ thành thông báo thay vì lỗi.
 
 ## Bước 1b - Bật xác nhận email
 
-1. Vào **Authentication > Providers > Email**, bật **Confirm email**.
+1. Vào **Authentication > Sign In / Providers > Email**, bật **Confirm email**.
    - Người dùng đăng ký trong app, Supabase gửi mail kèm link xác nhận.
+   - **Đây là công tắc duy nhất quyết định việc chặn đăng nhập.** Khi tắt, GoTrue
+     cấp phiên ngay lúc đăng ký và đóng dấu `email_confirmed_at` luôn, nên app
+     không phân biệt được và người dùng vào sảnh mà chưa bấm link. App có sẵn chốt
+     phòng ngừa ở `AuthGate`, nhưng chỉ cấu hình này mới chặn được.
    - Project mới chưa cấu hình SMTP riêng thì dùng mail mặc định của Supabase, có
      giới hạn số mail mỗi giờ — đủ cho vài tài khoản, nhưng nên cấu hình
      **Authentication > Emails > SMTP Settings** nếu dùng thật.
@@ -277,12 +281,13 @@ flutter build web --dart-define-from-file=.env            # Web
 | Triệu chứng | Nguyên nhân / cách xử lý |
 |---|---|
 | Màn hình báo "Thiếu cấu hình Supabase" | File `.env` chưa tồn tại/còn để trống, hoặc chưa truyền `--dart-define-from-file=.env`. |
-| Đăng nhập lỗi "Invalid login credentials" | Sai email/mật khẩu, hoặc user chưa được **Auto Confirm** trong Supabase Auth. |
+| Đăng nhập lỗi "Invalid login credentials" | Sai email/mật khẩu. Nếu chắc chắn đúng, kiểm tra user có tồn tại trong **Authentication > Users** không. |
 | Sảnh trống, không ai trong danh bạ | Chưa kết bạn nợ. Nhấn **Thêm bạn nợ** để lấy mã, người kia nhập mã (hoặc quét QR) rồi bên bạn Đồng ý lời mời. |
 | Nhập mã báo "Mã không đúng hoặc đã hết hạn" | Mã quá 10 phút, hoặc đã bị dùng một lần rồi, hoặc người kia đã tạo mã mới. Xin mã mới. |
 | Nhập mã báo "Đang có một lời mời chờ trả lời giữa hai bạn" | Đã có lời mời `pending` giữa hai người; vào sảnh trả lời lời mời đó thay vì tạo lời mời mới. |
 | Quét QR không mở được camera | Chưa cấp quyền camera cho app (Cài đặt > Ứng dụng > Sổ Nợ > Quyền), hoặc đang chạy trên web/desktop — dùng cách nhập mã bằng tay. |
 | Đăng nhập báo "Email chưa được xác nhận" | Bấm link xác nhận trong mail trước, rồi đăng nhập lại. Kiểm tra cả thư mục spam. |
+| Đăng ký xong vào thẳng sảnh dù chưa bấm link trong mail | **Confirm email** đang tắt ở **Authentication > Sign In / Providers > Email**. Bật lên rồi xoá các user chưa xác nhận trong **Authentication > Users** và đăng ký lại. |
 | Đọc được hồ sơ người lạ / không đọc được hồ sơ bạn nợ | Chưa chạy `20260916120000_pairing.sql`, hoặc chạy rồi nhưng thiếu bước seed: mọi cặp đã từng có giao dịch phải có một dòng `connections` trạng thái `accepted` trong bảng `connections`. |
 | Danh sách giao dịch không tự cập nhật realtime | Kiểm tra bảng `transactions` đã được bật trong **Database > Replication** (script SQL đã có lệnh này, nhưng có thể cần bật lại thủ công tùy phiên bản Supabase). |
 | Không gửi/xác nhận được giao dịch, lỗi quyền (RLS) | Kiểm tra đã chạy đầy đủ `schema.sql`, đặc biệt phần `create policy`. Người GỬI phải là `created_by`; chỉ người NHẬN mới được đổi trạng thái từ `waiting`. |
@@ -296,7 +301,9 @@ flutter build web --dart-define-from-file=.env            # Web
 - `anon key` là key public, an toàn để nhúng vào app client; mọi ràng buộc quan trọng (ai được xem, ai được sửa trạng thái nào) đều nằm trong policy SQL.
 - **Không có secret nào trong app.** Mốc đối soát chỉ là bản chụp dữ liệu lưu trên máy; mất mốc chỉ khiến app chốt lại mốc mới.
 - **Mã kết bạn nợ do server sinh**, không bao giờ sinh ở client: RPC `create_pair_code()` dùng
-  `gen_random_bytes()` (CSPRNG), bảng chữ 32 ký tự bỏ `I/O/0/1`, mã 8 ký tự (~2^40 khả năng),
+  `gen_random_uuid()` (CSPRNG, ở `pg_catalog` nên gọi được khi `search_path` rỗng — không dùng
+  `gen_random_bytes()` vì pgcrypto nằm ở schema `extensions`, tên không qualify sẽ không resolve),
+  bảng chữ 32 ký tự bỏ `I/O/0/1`, mã 8 ký tự (~2^40 khả năng),
   hiệu lực 10 phút và **chỉ dùng được một lần** (xoá ngay khi nhập, trong cùng transaction với
   bước kiểm tra nên nếu bước sau lỗi thì mã vẫn còn).
 - Bảng `pair_invites` bật RLS và **không có policy nào**: không ai đọc/ghi trực tiếp được, chỉ vào
