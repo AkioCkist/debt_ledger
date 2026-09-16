@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../utils/auth_redirect.dart';
 import 'auth_storage.dart';
 
 class AuthService {
@@ -23,15 +24,21 @@ class AuthService {
   ///
   /// Khi project bật xác nhận email, [AuthResponse.session] là null: người
   /// dùng phải bấm link trong mail rồi quay lại đăng nhập.
+  ///
+  /// [emailRedirectTo] là đích quay về sau khi bấm link (xem [AuthRedirect]).
+  /// Phải nằm trong danh sách cho phép ở **Authentication > URL Configuration**
+  /// của project, nếu không Supabase thay bằng **Site URL**.
   Future<AuthResponse> signUp({
     required String email,
     required String password,
     required String displayName,
+    String? emailRedirectTo,
   }) {
     return _client.auth.signUp(
       email: email.trim(),
       password: password,
       data: {'display_name': displayName.trim()},
+      emailRedirectTo: emailRedirectTo,
     );
   }
 

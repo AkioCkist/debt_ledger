@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/auth_redirect.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -57,6 +58,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         email: email,
         password: _passwordCtrl.text,
         displayName: _cleanName(_nameCtrl.text),
+        emailRedirectTo: AuthRedirect.current,
       );
 
       if (!mounted) return;

@@ -184,7 +184,7 @@ thành thông báo thay vì lỗi.
 > khoản đã từng có giao dịch với nhau được đánh dấu là bạn nợ sẵn, nên dữ liệu
 > đang dùng không bị ảnh hưởng.
 
-## Bước 1b - Bật xác nhận email
+## Bước 1b - Bật xác nhận email và khai báo địa chỉ quay về
 
 1. Vào **Authentication > Sign In / Providers > Email**, bật **Confirm email**.
    - Người dùng đăng ký trong app, Supabase gửi mail kèm link xác nhận.
@@ -195,10 +195,36 @@ thành thông báo thay vì lỗi.
    - Project mới chưa cấu hình SMTP riêng thì dùng mail mặc định của Supabase, có
      giới hạn số mail mỗi giờ — đủ cho vài tài khoản, nhưng nên cấu hình
      **Authentication > Emails > SMTP Settings** nếu dùng thật.
-2. Không cần tạo user thủ công: mỗi người tự đăng ký trong app.
+2. Vào **Authentication > URL Configuration**:
+   - **Site URL**: địa chỉ web thật của app. Nếu chưa deploy, để
+     `http://localhost:3000` (đúng cổng mặc định khi chạy web, xem Bước 5).
+   - **Redirect URLs**: thêm **cả hai** dòng dưới đây. Thiếu dòng nào thì link
+     trong mail sẽ bị Supabase thay bằng **Site URL** và không mở được đúng nơi.
+     ```
+     http://localhost:3000
+     sono://auth-confirm
+     ```
+   - Khi deploy web lên tên miền thật thì thêm luôn tên miền đó (ví dụ
+     `https://so-no.example`), cả ở **Site URL** lẫn **Redirect URLs**.
+3. Không cần tạo user thủ công: mỗi người tự đăng ký trong app.
 
-> Sau khi bấm link xác nhận trong mail, người dùng quay lại app và **đăng nhập**.
-> Link xác nhận chưa mở thẳng app được vì project chưa cấu hình deep link.
+**Link xác nhận đi đâu.** App tự truyền `redirect_to` theo nền tảng đang chạy
+(`lib/utils/auth_redirect.dart`):
+
+| Nền tảng | `redirect_to` | Bấm link thì |
+|---|---|---|
+| Android / iOS | `sono://auth-confirm` | Mở thẳng app, `supabase_flutter` tự đổi `?code=...` thành phiên và vào sảnh |
+| Web | origin đang chạy, ví dụ `http://localhost:3000` | Mở lại trang web, phiên được nhận từ URL |
+
+Scheme `sono` đã khai báo sẵn ở `android/app/src/main/AndroidManifest.xml`
+(intent-filter `VIEW` + `BROWSABLE`) và `ios/Runner/Info.plist`
+(`CFBundleURLTypes`), dùng chung với QR kết bạn nên chỉ khai báo một lần. Trên
+web, phải thêm origin vào **Redirect URLs** trước, vì cổng `flutter run -d chrome`
+đổi mỗi lần chạy — luôn chạy kèm `--web-port=3000` (xem Bước 5).
+
+> Nếu bấm link mà vẫn về `http://localhost:3000` dù đang ở trên điện thoại: chưa
+> thêm `sono://auth-confirm` vào **Redirect URLs**, hoặc chưa build lại app sau
+> khi sửa manifest/plist.
 
 ## Bước 2 - Tạo tài khoản
 
@@ -239,6 +265,14 @@ File `.env` đã được thêm vào `.gitignore`, không commit lên git. File 
 ```bash
 flutter pub get
 flutter run
+```
+
+Chạy bản web thì **luôn cố định cổng 3000**, vì cổng đổi mỗi lần chạy sẽ không
+khớp **Redirect URLs** đã khai báo ở Bước 1b và link xác nhận email trong mail sẽ
+trỏ sai:
+
+```bash
+flutter run -d chrome --web-port=3000
 ```
 
 Ứng dụng tự đọc `.env` khi khởi động. Có thể tiếp tục dùng
@@ -288,6 +322,9 @@ flutter build web --dart-define-from-file=.env            # Web
 | Quét QR không mở được camera | Chưa cấp quyền camera cho app (Cài đặt > Ứng dụng > Sổ Nợ > Quyền), hoặc đang chạy trên web/desktop — dùng cách nhập mã bằng tay. |
 | Đăng nhập báo "Email chưa được xác nhận" | Bấm link xác nhận trong mail trước, rồi đăng nhập lại. Kiểm tra cả thư mục spam. |
 | Đăng ký xong vào thẳng sảnh dù chưa bấm link trong mail | **Confirm email** đang tắt ở **Authentication > Sign In / Providers > Email**. Bật lên rồi xoá các user chưa xác nhận trong **Authentication > Users** và đăng ký lại. |
+| Link trong mail luôn trỏ về `http://localhost:3000` | Chưa thêm đích vào **Authentication > URL Configuration > Redirect URLs**. Supabase thay mọi `redirect_to` không có trong danh sách bằng **Site URL**. Thêm `sono://auth-confirm` (cho app) và origin web (cho web). |
+| Bấm link trên điện thoại mở trình duyệt chứ không mở app | Chưa thêm `sono://auth-confirm` vào **Redirect URLs**, hoặc app cài trên máy là bản build trước khi thêm intent-filter / `CFBundleURLTypes` — cài lại app. |
+| Web: bấm link xác nhận xong bị "không tìm thấy trang" | Chạy web không kèm `--web-port=3000` nên origin đổi cổng, không khớp **Redirect URLs**. Chạy lại `flutter run -d chrome --web-port=3000`. |
 | Đọc được hồ sơ người lạ / không đọc được hồ sơ bạn nợ | Chưa chạy `20260916120000_pairing.sql`, hoặc chạy rồi nhưng thiếu bước seed: mọi cặp đã từng có giao dịch phải có một dòng `connections` trạng thái `accepted` trong bảng `connections`. |
 | Danh sách giao dịch không tự cập nhật realtime | Kiểm tra bảng `transactions` đã được bật trong **Database > Replication** (script SQL đã có lệnh này, nhưng có thể cần bật lại thủ công tùy phiên bản Supabase). |
 | Không gửi/xác nhận được giao dịch, lỗi quyền (RLS) | Kiểm tra đã chạy đầy đủ `schema.sql`, đặc biệt phần `create policy`. Người GỬI phải là `created_by`; chỉ người NHẬN mới được đổi trạng thái từ `waiting`. |
@@ -318,7 +355,12 @@ flutter build web --dart-define-from-file=.env            # Web
 - **Tên riêng chỉ lưu phía mình**: bảng `contact_aliases` bắt mọi lệnh phải có `owner_id = auth.uid()`.
 - RPC `redeem_pair_code()` chỉ trả `connection_id` và `addressee_id`, không trả tên/email, và thông báo
   lỗi không kèm tên ai — tránh biến lỗi thành công cụ dò tài khoản.
-- Chưa làm: huỷ kết bạn (unpair), giới hạn số lần nhập mã sai (chống dò mã), deep link cho link xác nhận email.
+- Chưa làm: huỷ kết bạn (unpair), giới hạn số lần nhập mã sai (chống dò mã).
+- **Deep link dùng scheme riêng `sono://`**, không phải https App Link: máy khác cài app đăng ký
+  cùng scheme có thể chặn link xác nhận. Rủi ro bị chặn ở mức chấp nhận được vì luồng PKCE —
+  kẻ chặn chỉ lấy được `?code=...`, mà đổi code thành phiên còn cần `code_verifier` chỉ nằm trên
+  máy người dùng. Muốn chắc hơn thì cần một tên miền thật + `assetlinks.json` để chuyển sang
+  https App Link (`android:autoVerify="true"`).
 - Quyền ghi ở tầng database bị siết 2 lớp, độc lập với RLS:
   - `transactions_guard` chặn mọi thay đổi trên `created_by`, `recipient_id`, `type`, `amount`, `description`, `created_at`, chặn chuyển trạng thái sai hướng và chặn sửa `responded_at` sau khi đã chốt.
   - `revoke update` toàn bảng + `grant update (status)`: tài khoản đăng nhập chỉ PATCH được đúng cột `status`. Đây là lỗ hổng đã tồn tại trước đây — policy update chỉ kiểm tra `recipient_id` và `status` ở `WITH CHECK`, nên người nhận có thể gửi kèm `amount` trong cùng câu UPDATE.
