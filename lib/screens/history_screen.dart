@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../models/app_profile.dart';
 import '../models/debt_transaction.dart';
-import '../services/transaction_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/transaction_tile.dart';
 import 'invoice_detail_screen.dart';
@@ -11,14 +10,17 @@ enum _Filter { all, waiting, accepted, declined }
 
 class HistoryScreen extends StatefulWidget {
   final AppProfile me;
-  final AppProfile other;
-  final TransactionService transactionService;
+  final String otherName;
+
+  /// Giao dịch của ĐÚNG một bạn nợ, do màn hình sổ nợ lọc sẵn. Màn này không
+  /// tự stream để không trộn giao dịch của những người khác vào.
+  final List<DebtTransaction> transactions;
 
   const HistoryScreen({
     super.key,
     required this.me,
-    required this.other,
-    required this.transactionService,
+    required this.otherName,
+    required this.transactions,
   });
 
   @override
@@ -82,13 +84,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
               ),
             ),
             Expanded(
-              child: StreamBuilder<List<DebtTransaction>>(
-                stream: widget.transactionService.streamMyTransactions(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  final txs = _apply(snapshot.data ?? []);
+              child: Builder(
+                builder: (context) {
+                  final txs = _apply(widget.transactions);
                   if (txs.isEmpty) {
                     return const Center(
                       child: Text(
@@ -106,13 +104,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       return TransactionTile(
                         tx: tx,
                         myId: widget.me.id,
-                        otherName: widget.other.displayName,
+                        otherName: widget.otherName,
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => InvoiceDetailScreen(
                               tx: tx,
                               myId: widget.me.id,
-                              otherName: widget.other.displayName,
+                              otherName: widget.otherName,
                             ),
                           ),
                         ),

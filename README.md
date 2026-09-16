@@ -1,20 +1,25 @@
-# Sổ Nợ - Ứng dụng theo dõi công nợ giữa 2 người
+# Sổ Nợ - Ứng dụng theo dõi công nợ nhiều người
 
-Ứng dụng Flutter + Supabase để theo dõi công nợ giữa **đúng 2 tài khoản cố định**.
-Khi một bên ghi nợ hoặc trả nợ cho bên kia, hệ thống tạo một "invoice" ở trạng
-thái `waiting`; giao dịch chỉ thực sự được tính vào số dư sau khi bên còn lại
-**xác nhận (accept)**. Bên kia cũng có thể **từ chối (decline)**.
+Ứng dụng Flutter + Supabase để theo dõi công nợ với **nhiều người**. Mỗi người tự
+tạo tài khoản, vào **sảnh** để kết bạn nợ với nhau (bằng mã ngắn hạn hoặc QR),
+rồi mỗi cặp có một sổ nợ riêng. Khi một bên ghi nợ hoặc trả nợ cho bên kia, hệ
+thống tạo một "invoice" ở trạng thái `waiting`; giao dịch chỉ thực sự được tính
+vào số dư sau khi bên còn lại **xác nhận (accept)**. Bên kia cũng có thể
+**từ chối (decline)**.
 
 ## Tính năng
 
-- Đăng nhập bằng 2 tài khoản đã tạo sẵn trong Supabase Auth (không có màn hình đăng ký).
-- Ghi nợ / trả nợ kèm số tiền (VND) và mô tả.
+- Tự đăng ký tài khoản (email + mật khẩu) ngay trong app, có xác nhận email.
+- **Sảnh** là màn hình đầu tiên sau khi đăng nhập: danh bạ bạn nợ, lời mời đang chờ, thẻ đối soát.
+- **Kết bạn nợ bằng mã/QR**: một bên tạo mã 8 ký tự (hiệu lực 10 phút, dùng một lần) kèm QR; bên kia nhập mã hoặc quét QR; bên tạo nhận lời mời và chọn Đồng ý / Từ chối.
+- Mỗi bạn nợ có một ô riêng ở sảnh, hiện số dư ròng của riêng người đó; chạm vào mở sổ nợ của cặp đó.
+- **Đổi tên riêng cho bạn nợ** (ví dụ "Anh Nam"): chỉ lưu phía mình, đối phương không thấy.
+- Ghi nợ / trả nợ kèm số tiền (VND) và mô tả, chỉ với người đã kết bạn nợ.
 - Giao dịch mới luôn ở trạng thái `waiting` cho tới khi người nhận xác nhận.
 - Người nhận xác nhận (`accepted`) hoặc từ chối (`declined`) ngay trên app, cập nhật realtime qua Supabase Realtime.
-- Màn hình chính hiển thị số dư ròng hiện tại (ai đang nợ ai bao nhiêu), danh sách chờ xác nhận, và lịch sử gần đây.
 - Màn hình lịch sử có bộ lọc theo trạng thái.
-- **Đối soát dữ liệu**: mục ngay trên màn hình chính, tự so khớp dữ liệu đang thấy với mốc đã chốt để phát hiện ai đó sửa database ngoài app (xem mục "Đối soát dữ liệu" bên dưới).
-- Bảo mật bằng Row Level Security (RLS): mỗi người chỉ thấy và thao tác được trên giao dịch liên quan đến mình; chỉ người nhận mới đổi được trạng thái invoice.
+- **Đối soát dữ liệu**: mục ngay trên sảnh, tự so khớp dữ liệu đang thấy với mốc đã chốt để phát hiện ai đó sửa database ngoài app (xem mục "Đối soát dữ liệu" bên dưới).
+- Bảo mật bằng Row Level Security (RLS): chỉ thấy giao dịch mình liên quan, chỉ đọc được hồ sơ của người mình đã kết bạn (hoặc đang có lời mời), chỉ ghi được giao dịch với người đã kết bạn.
 - Số tiền và nội dung giao dịch bị **khoá cứng ở tầng database**: không sửa được sau khi tạo, kể cả khi sửa trực tiếp bằng SQL.
 - Giao diện tối giản (minimalism), không hiệu ứng sao chép AI-slop: bảng màu trung tính, một màu nhấn duy nhất, không gradient/emoji thừa.
 
@@ -27,27 +32,44 @@ lib/
 ├── config.dart              # Đọc SUPABASE_URL / SUPABASE_ANON_KEY từ --dart-define
 ├── theme/app_theme.dart     # Bảng màu, ThemeData tối giản
 ├── models/                  # AppProfile, DebtTransaction (+ TxType, TxStatus),
+│                            # DebtConnection/ContactBook, PairCode,
 │                            # LedgerSnapshot, IntegrityReport, SyncCheckpoint
 ├── services/
-│   ├── auth_service.dart          # Đăng nhập / đăng xuất / theo dõi phiên
-│   ├── profile_service.dart       # Lấy hồ sơ của mình & của "người kia"
+│   ├── auth_service.dart          # Đăng nhập / đăng ký / đăng xuất / theo dõi phiên
+│   ├── profile_service.dart       # Lấy hồ sơ của mình & của nhiều người
+│   ├── connection_service.dart    # Quan hệ bạn nợ + RPC tạo/ nhập mã pairing
+│   ├── contact_alias_service.dart # Tên riêng mình đặt cho bạn nợ (chỉ phía mình)
 │   ├── transaction_service.dart   # Stream realtime + tạo/ phản hồi invoice
-│   ├── ledger_math.dart           # Công thức số dư + vân tay giao dịch
+│   ├── ledger_math.dart           # Công thức số dư + lọc theo cặp + vân tay giao dịch
 │   ├── integrity_service.dart     # Logic đối soát (phát hiện sửa ngoài luồng)
 │   └── integrity_store.dart       # Lưu mốc đối soát trên máy (per-tài khoản)
 ├── screens/
-│   ├── auth_gate.dart              # Điều hướng Login <-> Home theo trạng thái đăng nhập
+│   ├── auth_gate.dart              # Điều hướng Login <-> Sảnh theo trạng thái đăng nhập
 │   ├── login_screen.dart
-│   ├── home_screen.dart            # Số dư + đối soát + chờ xác nhận + lịch sử gần đây
+│   ├── signup_screen.dart          # Tự đăng ký tài khoản
+│   ├── lobby_screen.dart           # Sảnh: lời mời, danh bạ, đối soát, nút Thêm bạn nợ
+│   ├── contact_ledger_screen.dart  # Sổ nợ của MỘT bạn nợ
 │   ├── add_transaction_screen.dart # Tạo invoice mới (ghi nợ / trả nợ)
 │   ├── invoice_detail_screen.dart  # Chi tiết + nút Xác nhận / Từ chối
-│   ├── history_screen.dart         # Toàn bộ lịch sử, có bộ lọc
+│   ├── history_screen.dart         # Lịch sử của một bạn nợ, có bộ lọc
+│   ├── scan_qr_screen.dart         # Quét QR kết bạn nợ (mobile_scanner)
 │   └── data_integrity_screen.dart  # Chi tiết đối soát + đặt lại mốc
-└── widgets/                 # BalanceCard, IntegrityCard, TransactionTile, StatusBadge
+└── widgets/                 # BalanceCard, IntegrityCard, TransactionTile,
+                             # StatusBadge, AddContactSheet (mã + QR + ô nhập mã)
 
 supabase/schema.sql          # Toàn bộ schema + RLS, chạy 1 lần trong SQL Editor
 supabase/migrations/         # Migration cho database đã cài từ trước
 ```
+
+**Kết bạn nợ (pairing):**
+
+1. A mở **Thêm bạn nợ** ở sảnh: app gọi RPC `create_pair_code()` để server sinh mã 8 ký tự
+   (hiệu lực 10 phút, dùng một lần) rồi hiện mã kèm QR.
+2. B nhập mã đó, hoặc quét QR (`sono://pair?code=XXXXXXXX`) — app gọi RPC `redeem_pair_code()`.
+3. Server xoá mã, tạo một dòng `connections` ở trạng thái `pending` giữa B (người gửi) và A (người nhận).
+4. A thấy lời mời ngay ở sảnh (Realtime), chọn **Đồng ý** hoặc **Từ chối**.
+5. Đồng ý thì hai người thấy nhau trong danh bạ và gửi được giao dịch cho nhau; từ chối thì không,
+   và A phải tạo mã mới nếu muốn B thử lại (mã cũ đã bị dùng).
 
 **Vòng đời một giao dịch:**
 
@@ -65,7 +87,7 @@ Số dư dương nghĩa là người kia đang nợ mình; số dư âm nghĩa l
 
 ## Đối soát dữ liệu (phát hiện database bị sửa ngoài app)
 
-Màn hình chính có mục **Đối soát dữ liệu** (và icon khiên trên thanh tiêu đề), tự động
+Sảnh có mục **Đối soát dữ liệu** (và icon khiên trên thanh tiêu đề), tự động
 so khớp dữ liệu đang thấy với mốc đã chốt gần nhất. Mọi việc diễn ra tại client,
 không gửi dữ liệu đi đâu, không cần secret.
 
@@ -138,26 +160,53 @@ thành thông báo thay vì lỗi.
 
 1. Vào https://supabase.com/dashboard, tạo project mới (nhớ lưu lại mật khẩu database).
 2. Vào **SQL Editor**, dán toàn bộ nội dung file `supabase/schema.sql` và nhấn **Run**.
-   - Script sẽ tạo bảng `profiles`, `transactions`, các policy RLS, trigger tự động tạo `profiles` khi có user mới, cột `updated_at`/`version` cho đối soát, RPC `ledger_snapshot()`, và bật Realtime cho bảng `transactions`.
+   - Script sẽ tạo bảng `profiles`, `transactions`, `connections`, `pair_invites`,
+     `contact_aliases`, các policy RLS, trigger tự động tạo `profiles` khi có user
+     mới, cột `updated_at`/`version` cho đối soát, RPC `ledger_snapshot()`,
+     `create_pair_code()`, `redeem_pair_code()`, và bật Realtime cho
+     `transactions` + `connections`.
    - File đã idempotent: chạy lại nhiều lần không lỗi và không mất dữ liệu.
+   - Lưu ý: SQL Editor chạy cả file trong **một transaction**, nên một lệnh lỗi sẽ
+     rollback toàn bộ. Cứ sửa lỗi rồi chạy lại từ đầu.
 
-> **Database đã cài từ trước:** chỉ cần chạy thêm `supabase/migrations/20260914120000_ledger_integrity.sql`
-> trong SQL Editor. Migration này thêm cột `updated_at`/`version`, trigger chặn sửa field quan trọng,
-> siết quyền UPDATE theo cột và tạo RPC đối soát — không đổi dữ liệu hiện có.
-> Nếu bỏ qua bước này, app vẫn chạy bình thường, chỉ là mục Đối soát sẽ báo
-> "Database chưa theo dõi phiên bản" và giảm bớt vài phép so khớp.
+> **Database đã cài từ trước:** chạy thêm hai file trong `supabase/migrations/`
+> theo thứ tự (mỗi file chạy một lần trong SQL Editor):
+>
+> 1. `20260914120000_ledger_integrity.sql` — thêm cột `updated_at`/`version`, trigger
+>    chặn sửa field quan trọng, siết quyền UPDATE theo cột, tạo RPC đối soát.
+>    Bỏ qua thì app vẫn chạy, chỉ là mục Đối soát báo "Database chưa theo dõi phiên bản".
+> 2. `20260916120000_pairing.sql` — thêm bảng pairing, hai RPC sinh/nhập mã, siết lại
+>    quyền đọc `profiles` và quyền tạo giao dịch.
+>
+> **Chạy migration pairing TRƯỚC khi phát hành bản app mới.** Migration này siết
+> policy đọc `profiles`; app cũ (bản đi tìm "người kia" bằng `neq('id', uid)`) sẽ
+> không còn đọc được hồ sơ người kia nữa. Migration có sẵn bước seed: mọi cặp tài
+> khoản đã từng có giao dịch với nhau được đánh dấu là bạn nợ sẵn, nên dữ liệu
+> đang dùng không bị ảnh hưởng.
 
-## Bước 2 - Tạo 2 tài khoản cố định
+## Bước 1b - Bật xác nhận email
 
-1. Vào **Authentication > Users > Add user > Create new user**.
-2. Tạo 2 user, ví dụ:
-   - `an@sono.app` / mật khẩu tùy chọn
-   - `binh@sono.app` / mật khẩu tùy chọn
-   - Tick **Auto Confirm User** để không cần xác nhận email.
-3. Trigger `handle_new_user` sẽ tự động tạo dòng tương ứng trong bảng `profiles` với `display_name` mặc định là phần trước `@` của email.
-4. (Tùy chọn) Vào **Table Editor > profiles**, sửa cột `display_name` thành tên hiển thị dễ dùng, ví dụ "An", "Bình".
+1. Vào **Authentication > Providers > Email**, bật **Confirm email**.
+   - Người dùng đăng ký trong app, Supabase gửi mail kèm link xác nhận.
+   - Project mới chưa cấu hình SMTP riêng thì dùng mail mặc định của Supabase, có
+     giới hạn số mail mỗi giờ — đủ cho vài tài khoản, nhưng nên cấu hình
+     **Authentication > Emails > SMTP Settings** nếu dùng thật.
+2. Không cần tạo user thủ công: mỗi người tự đăng ký trong app.
 
-> Lưu ý: ứng dụng giả định hệ thống **luôn có đúng 2 profile**. Nếu tạo thêm tài khoản thứ 3, màn hình sẽ chỉ lấy 1 "người kia" bất kỳ (người đầu tiên khác mình) - không phù hợp cho >2 người dùng.
+> Sau khi bấm link xác nhận trong mail, người dùng quay lại app và **đăng nhập**.
+> Link xác nhận chưa mở thẳng app được vì project chưa cấu hình deep link.
+
+## Bước 2 - Tạo tài khoản
+
+Mở app, chọn **Chưa có tài khoản? Tạo tài khoản**, nhập tên hiển thị, email và
+mật khẩu. Trigger `handle_new_user` sẽ tự tạo dòng trong bảng `profiles` với
+`display_name` lấy từ tên đã nhập.
+
+Muốn thêm tài khoản thứ hai để thử: đăng ký tiếp bằng email khác (hoặc
+**Authentication > Users > Add user** với **Auto Confirm User**).
+
+> Tên hiển thị hiện cho người khác thấy khi kết bạn nợ, và có thể đổi lại lúc
+> nào cũng được trong **Table Editor > profiles**.
 
 ## Bước 3 - Lấy API keys
 
@@ -191,7 +240,14 @@ flutter run
 Ứng dụng tự đọc `.env` khi khởi động. Có thể tiếp tục dùng
 `--dart-define-from-file=.env` cho môi trường CI hoặc bản build release.
 
-Chọn thiết bị / emulator / Chrome khi được hỏi. Đăng nhập bằng 1 trong 2 tài khoản đã tạo ở Bước 2 để kiểm tra; mở thêm một trình giả lập/thiết bị khác (hoặc Chrome + mobile emulator song song) rồi đăng nhập tài khoản còn lại để test luồng gửi - xác nhận hai chiều.
+Chọn thiết bị / emulator / Chrome khi được hỏi. Đăng ký một tài khoản, vào sảnh,
+rồi mở thêm một trình giả lập/thiết bị khác (hoặc Chrome + mobile emulator song
+song) và đăng ký tài khoản thứ hai để test luồng kết bạn nợ và gửi - xác nhận
+hai chiều.
+
+Nút **Quét QR** chỉ hiện trên Android/iOS — camera không có trên web/desktop nên
+ở đó chỉ nhập mã bằng tay. Trên Android/iOS lần đầu quét, hệ điều hành sẽ hỏi
+quyền camera (đã khai báo trong `AndroidManifest.xml` / `Info.plist`).
 
 ### Đổi icon ứng dụng
 
@@ -222,7 +278,12 @@ flutter build web --dart-define-from-file=.env            # Web
 |---|---|
 | Màn hình báo "Thiếu cấu hình Supabase" | File `.env` chưa tồn tại/còn để trống, hoặc chưa truyền `--dart-define-from-file=.env`. |
 | Đăng nhập lỗi "Invalid login credentials" | Sai email/mật khẩu, hoặc user chưa được **Auto Confirm** trong Supabase Auth. |
-| Lỗi "Chưa tìm thấy tài khoản thứ hai" | Chưa tạo đủ 2 user trong Supabase Authentication (xem Bước 2). |
+| Sảnh trống, không ai trong danh bạ | Chưa kết bạn nợ. Nhấn **Thêm bạn nợ** để lấy mã, người kia nhập mã (hoặc quét QR) rồi bên bạn Đồng ý lời mời. |
+| Nhập mã báo "Mã không đúng hoặc đã hết hạn" | Mã quá 10 phút, hoặc đã bị dùng một lần rồi, hoặc người kia đã tạo mã mới. Xin mã mới. |
+| Nhập mã báo "Đang có một lời mời chờ trả lời giữa hai bạn" | Đã có lời mời `pending` giữa hai người; vào sảnh trả lời lời mời đó thay vì tạo lời mời mới. |
+| Quét QR không mở được camera | Chưa cấp quyền camera cho app (Cài đặt > Ứng dụng > Sổ Nợ > Quyền), hoặc đang chạy trên web/desktop — dùng cách nhập mã bằng tay. |
+| Đăng nhập báo "Email chưa được xác nhận" | Bấm link xác nhận trong mail trước, rồi đăng nhập lại. Kiểm tra cả thư mục spam. |
+| Đọc được hồ sơ người lạ / không đọc được hồ sơ bạn nợ | Chưa chạy `20260916120000_pairing.sql`, hoặc chạy rồi nhưng thiếu bước seed: mọi cặp đã từng có giao dịch phải có một dòng `connections` trạng thái `accepted` trong bảng `connections`. |
 | Danh sách giao dịch không tự cập nhật realtime | Kiểm tra bảng `transactions` đã được bật trong **Database > Replication** (script SQL đã có lệnh này, nhưng có thể cần bật lại thủ công tùy phiên bản Supabase). |
 | Không gửi/xác nhận được giao dịch, lỗi quyền (RLS) | Kiểm tra đã chạy đầy đủ `schema.sql`, đặc biệt phần `create policy`. Người GỬI phải là `created_by`; chỉ người NHẬN mới được đổi trạng thái từ `waiting`. |
 | Xác nhận/từ chối báo lỗi `permission denied for table transactions` | Chưa chạy migration (mục 3c trong `schema.sql` hoặc file trong `supabase/migrations/`): quyền UPDATE toàn bảng bị thu hồi nhưng chưa grant lại cho cột `status`. Chạy lại `schema.sql`. |
@@ -231,9 +292,26 @@ flutter build web --dart-define-from-file=.env            # Web
 
 ## Ghi chú bảo mật
 
-- Toàn bộ phân quyền đọc/ghi giao dịch nằm ở RLS trong Postgres (không tin tưởng logic phía client).
+- Toàn bộ phân quyền đọc/ghi nằm ở RLS trong Postgres (không tin tưởng logic phía client).
 - `anon key` là key public, an toàn để nhúng vào app client; mọi ràng buộc quan trọng (ai được xem, ai được sửa trạng thái nào) đều nằm trong policy SQL.
 - **Không có secret nào trong app.** Mốc đối soát chỉ là bản chụp dữ liệu lưu trên máy; mất mốc chỉ khiến app chốt lại mốc mới.
+- **Mã kết bạn nợ do server sinh**, không bao giờ sinh ở client: RPC `create_pair_code()` dùng
+  `gen_random_bytes()` (CSPRNG), bảng chữ 32 ký tự bỏ `I/O/0/1`, mã 8 ký tự (~2^40 khả năng),
+  hiệu lực 10 phút và **chỉ dùng được một lần** (xoá ngay khi nhập, trong cùng transaction với
+  bước kiểm tra nên nếu bước sau lỗi thì mã vẫn còn).
+- Bảng `pair_invites` bật RLS và **không có policy nào**: không ai đọc/ghi trực tiếp được, chỉ vào
+  được qua RPC `security definer`. Cả hai RPC đều `revoke execute from public, anon` — phải có
+  phiên đăng nhập (đã xác nhận email) mới gọi được, nên `anon key` một mình không brute-force được.
+- **Ai đọc được hồ sơ:** policy `profiles_select_connected` chỉ cho đọc chính mình, người đã kết bạn nợ,
+  hoặc người đang có lời mời (`pending`). Lời mời đã bị từ chối (`declined`) **không** còn quyền đọc —
+  nếu tính cả `declined` thì người từng nhận lời mời giữ được quyền đọc `email` của người đã từ chối họ.
+- **Chỉ tạo được giao dịch với người đã kết bạn nợ**: policy insert của `transactions` gọi
+  `is_connected(created_by, recipient_id)`. Hàm này từ chối khi gọi với hai uuid không liên quan
+  tới người đang đăng nhập, nên không dùng làm công cụ dò quan hệ giữa hai người khác.
+- **Tên riêng chỉ lưu phía mình**: bảng `contact_aliases` bắt mọi lệnh phải có `owner_id = auth.uid()`.
+- RPC `redeem_pair_code()` chỉ trả `connection_id` và `addressee_id`, không trả tên/email, và thông báo
+  lỗi không kèm tên ai — tránh biến lỗi thành công cụ dò tài khoản.
+- Chưa làm: huỷ kết bạn (unpair), giới hạn số lần nhập mã sai (chống dò mã), deep link cho link xác nhận email.
 - Quyền ghi ở tầng database bị siết 2 lớp, độc lập với RLS:
   - `transactions_guard` chặn mọi thay đổi trên `created_by`, `recipient_id`, `type`, `amount`, `description`, `created_at`, chặn chuyển trạng thái sai hướng và chặn sửa `responded_at` sau khi đã chốt.
   - `revoke update` toàn bảng + `grant update (status)`: tài khoản đăng nhập chỉ PATCH được đúng cột `status`. Đây là lỗ hổng đã tồn tại trước đây — policy update chỉ kiểm tra `recipient_id` và `status` ở `WITH CHECK`, nên người nhận có thể gửi kèm `amount` trong cùng câu UPDATE.

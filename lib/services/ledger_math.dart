@@ -36,6 +36,20 @@ class LedgerMath {
     return balance;
   }
 
+  /// Giao dịch giữa đúng hai người này (không tính giao dịch với người khác).
+  /// Sổ nợ giờ tách theo từng bạn nợ nên mọi phép tính phải lọc trước.
+  static bool between(DebtTransaction tx, String a, String b) =>
+      (tx.createdBy == a && tx.recipientId == b) ||
+      (tx.createdBy == b && tx.recipientId == a);
+
+  /// Như [between] nhưng trên row thô từ Supabase.
+  static bool rawBetween(Map<String, dynamic> row, String a, String b) {
+    final createdBy = row['created_by'];
+    final recipientId = row['recipient_id'];
+    return (createdBy == a && recipientId == b) ||
+        (createdBy == b && recipientId == a);
+  }
+
   /// Id của row, trả về null nếu row hỏng.
   static String? rowId(Map<String, dynamic> row) {
     final id = row['id'];

@@ -18,6 +18,23 @@ class AuthService {
     await _client.auth.signInWithPassword(email: email, password: password);
   }
 
+  /// Tự đăng ký. `display_name` đi vào `raw_user_meta_data` để trigger
+  /// `handle_new_user` (supabase/schema.sql) tạo luôn dòng `profiles`.
+  ///
+  /// Khi project bật xác nhận email, [AuthResponse.session] là null: người
+  /// dùng phải bấm link trong mail rồi quay lại đăng nhập.
+  Future<AuthResponse> signUp({
+    required String email,
+    required String password,
+    required String displayName,
+  }) {
+    return _client.auth.signUp(
+      email: email.trim(),
+      password: password,
+      data: {'display_name': displayName.trim()},
+    );
+  }
+
   Future<void> signOut() {
     return _client.auth.signOut();
   }

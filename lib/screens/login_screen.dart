@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -43,7 +44,9 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       // AuthGate sẽ tự chuyển màn hình khi trạng thái đăng nhập thay đổi.
     } on AuthException catch (e) {
-      setState(() => _error = e.message);
+      setState(() => _error = e.message.toLowerCase().contains('not confirmed')
+          ? 'Email chưa được xác nhận. Hãy bấm link trong mail rồi thử lại.'
+          : e.message);
     } catch (e) {
       setState(() => _error = 'Đã có lỗi xảy ra. Vui lòng thử lại.');
     } finally {
@@ -178,10 +181,23 @@ class _LoginScreenState extends State<LoginScreen> {
                           : const Text('Đăng nhập'),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: TextButton(
+                      onPressed: _loading
+                          ? null
+                          : () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const SignUpScreen(),
+                                ),
+                              ),
+                      child: const Text('Chưa có tài khoản? Tạo tài khoản'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   const Text(
-                    'Tài khoản được quản trị viên tạo sẵn trong Supabase. '
-                    'Liên hệ quản trị viên nếu bạn chưa có tài khoản.',
+                    'Tài khoản tạo xong cần bấm link xác nhận trong email '
+                    'trước khi đăng nhập được.',
                     style: TextStyle(fontSize: 12.5, color: AppColors.textFaint),
                   ),
                 ],

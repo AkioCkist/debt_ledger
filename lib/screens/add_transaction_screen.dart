@@ -9,12 +9,17 @@ import '../utils/thousands_input_formatter.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final AppProfile me;
-  final AppProfile other;
+
+  /// Người nhận. Chỉ cần id + tên hiển thị: tên có thể là tên riêng mình đặt
+  /// cho họ ở sảnh, không nhất thiết là tên trong hồ sơ.
+  final String otherId;
+  final String otherName;
 
   const AddTransactionScreen({
     super.key,
     required this.me,
-    required this.other,
+    required this.otherId,
+    required this.otherName,
   });
 
   @override
@@ -47,7 +52,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     try {
       await _transactionService.createInvoice(
         createdBy: widget.me.id,
-        recipientId: widget.other.id,
+        recipientId: widget.otherId,
         type: _type,
         amount: amount,
         description: _descCtrl.text,
@@ -57,7 +62,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Đã gửi yêu cầu tới ${widget.other.displayName}, đang chờ xác nhận.',
+              'Đã gửi yêu cầu tới ${widget.otherName}, đang chờ xác nhận.',
             ),
           ),
         );
@@ -84,7 +89,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
             children: [
               Text(
-                'Gửi cho ${widget.other.displayName}',
+                'Gửi cho ${widget.otherName}',
                 style: const TextStyle(
                   fontSize: 13.5,
                   color: AppColors.textSecondary,
@@ -155,8 +160,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     Expanded(
                       child: Text(
                         _type == TxType.debt
-                            ? '${widget.other.displayName} sẽ nhận được yêu cầu xác nhận khoản nợ này. Số dư chỉ thay đổi khi họ đồng ý.'
-                            : '${widget.other.displayName} sẽ nhận được yêu cầu xác nhận khoản thanh toán này. Số dư chỉ thay đổi khi họ đồng ý.',
+                            ? '${widget.otherName} sẽ nhận được yêu cầu xác nhận khoản nợ này. Số dư chỉ thay đổi khi họ đồng ý.'
+                            : '${widget.otherName} sẽ nhận được yêu cầu xác nhận khoản thanh toán này. Số dư chỉ thay đổi khi họ đồng ý.',
                         style: const TextStyle(
                           fontSize: 12.5,
                           color: AppColors.textPrimary,
