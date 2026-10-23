@@ -56,6 +56,23 @@ List<IntegrityFinding> criticalsOf(IntegrityReport report) =>
     report.criticals.toList();
 
 void main() {
+  test('xem trước giao dịch mới cộng về phía người tạo', () {
+    expect(
+      LedgerMath.projectBalanceAfterCreatedTransaction(
+        currentBalance: -500000,
+        amount: 200000,
+      ),
+      -300000,
+    );
+    expect(
+      LedgerMath.projectBalanceAfterCreatedTransaction(
+        currentBalance: -500000,
+        amount: 700000,
+      ),
+      200000,
+    );
+  });
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   final service = IntegrityService();
@@ -309,7 +326,8 @@ void main() {
 
   group('dữ liệu hỏng', () {
     test('số tiền không dương', () {
-      final result = service.evaluate(rows: [row(id: 'a', amount: 0)], myId: me);
+      final result =
+          service.evaluate(rows: [row(id: 'a', amount: 0)], myId: me);
       expect(codesOf(result.report), contains('non_positive_amount'));
     });
 
@@ -365,7 +383,8 @@ void main() {
   group('mốc đối soát lưu trên máy', () {
     setUp(() => SharedPreferences.setMockInitialValues({}));
 
-    test('checkRows tự chốt mốc khi dữ liệu sạch, và báo động khi mốc bị lệch', () async {
+    test('checkRows tự chốt mốc khi dữ liệu sạch, và báo động khi mốc bị lệch',
+        () async {
       final rows = [row(id: 'a', amount: 100000)];
 
       final first = await service.checkRows(rows: rows, myId: me);

@@ -21,6 +21,16 @@ class LedgerMath {
     return balance;
   }
 
+  /// Xem trước số dư sau khi chính người dùng tạo một giao dịch và người kia
+  /// xác nhận. Theo mô hình hiện tại, cả `debt` lẫn `payment` đều cộng số tiền
+  /// về phía người tạo: ghi nợ là người kia nợ mình, còn trả nợ là mình đã trả
+  /// người kia nên khoản mình đang nợ giảm đi.
+  static num projectBalanceAfterCreatedTransaction({
+    required num currentBalance,
+    required num amount,
+  }) =>
+      currentBalance + amount;
+
   /// Bản dùng trực tiếp trên row thô từ Supabase (đối soát không cần parse model).
   static num computeRawBalance(
     Iterable<Map<String, dynamic>> rows,

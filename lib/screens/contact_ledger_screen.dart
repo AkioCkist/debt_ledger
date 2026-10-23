@@ -102,6 +102,19 @@ class _ContactLedgerScreenState extends State<ContactLedgerScreen> {
     );
   }
 
+  Future<void> _openAddTransactionScreen() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AddTransactionScreen(
+          me: widget.me,
+          otherId: _otherId,
+          otherName: _otherName,
+          currentBalance: LedgerMath.computeBalance(_transactions, _myId),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -117,17 +130,8 @@ class _ContactLedgerScreenState extends State<ContactLedgerScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => AddTransactionScreen(
-                me: widget.me,
-                otherId: _otherId,
-                otherName: _otherName,
-              ),
-            ),
-          );
-        },
+        onPressed:
+            _loading || _error != null ? null : _openAddTransactionScreen,
         icon: const Icon(Icons.add_rounded),
         label: const Text('Thêm giao dịch'),
       ),
@@ -190,7 +194,6 @@ class _ContactLedgerScreenState extends State<ContactLedgerScreen> {
         children: [
           BalanceCard(balance: balance, otherName: _otherName),
           const SizedBox(height: 24),
-
           if (pendingForMe.isNotEmpty) ...[
             _SectionHeader(
               title: 'Cần bạn xác nhận',
@@ -200,7 +203,6 @@ class _ContactLedgerScreenState extends State<ContactLedgerScreen> {
             ...pendingForMe.map(tileOf),
             const SizedBox(height: 14),
           ],
-
           if (pendingFromMe.isNotEmpty) ...[
             _SectionHeader(
               title: 'Đã gửi, chờ $_otherName xác nhận',
@@ -210,7 +212,6 @@ class _ContactLedgerScreenState extends State<ContactLedgerScreen> {
             ...pendingFromMe.map(tileOf),
             const SizedBox(height: 14),
           ],
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -230,10 +231,7 @@ class _ContactLedgerScreenState extends State<ContactLedgerScreen> {
             ],
           ),
           const SizedBox(height: 4),
-          if (recent.isEmpty)
-            const _EmptyState()
-          else
-            ...recent.map(tileOf),
+          if (recent.isEmpty) const _EmptyState() else ...recent.map(tileOf),
         ],
       ),
     );
