@@ -322,6 +322,65 @@ void main() {
       );
       expect(codesOf(second.report), contains('server_ledger_drift'));
     });
+
+    test('sảnh chốt mốc không có server sau khi có giao dịch được xác nhận '
+        'thì không báo nhầm vân tay sổ nợ', () {
+      // Lần 1 (màn đối soát, có server): mốc mang hash-a.
+      final first = service.evaluate(
+        rows: [row(id: 'a', amount: 100000)],
+        myId: me,
+        server: serverSnapshot(total: 1, balance: 100000),
+      );
+
+      // Lần 2 (sảnh, không có server): giao dịch mới được người kia xác nhận.
+      final afterAccept = [
+        row(id: 'a', amount: 100000),
+        row(id: 'b', amount: 100000, version: 2),
+      ];
+      final lobby = service.evaluate(
+        rows: afterAccept,
+        myId: me,
+        baseline: first.nextCheckpoint,
+      );
+      expect(lobby.report.isTrusted, isTrue);
+      expect(lobby.nextCheckpoint.ledgerHash, isNull);
+
+      // Lần 3 (màn đối soát): server băm sổ nợ mới, không dòng nào đổi.
+      final third = service.evaluate(
+        rows: afterAccept,
+        myId: me,
+        baseline: lobby.nextCheckpoint,
+        server: const LedgerSnapshot(
+          totalCount: 2,
+          acceptedCount: 2,
+          pendingCount: 0,
+          declinedCount: 0,
+          maxVersion: 2,
+          netBalance: 200000,
+          ledgerHash: 'hash-b',
+        ),
+      );
+      expect(codesOf(third.report), isNot(contains('server_ledger_drift')));
+      expect(criticalsOf(third.report), isEmpty);
+      expect(third.nextCheckpoint.ledgerHash, 'hash-b');
+    });
+
+    test('sảnh chốt mốc mà tập accepted không đổi thì giữ vân tay cũ', () {
+      final first = service.evaluate(
+        rows: [row(id: 'a', amount: 100000)],
+        myId: me,
+        server: serverSnapshot(total: 1, balance: 100000),
+      );
+      final lobby = service.evaluate(
+        rows: [
+          row(id: 'a', amount: 100000),
+          row(id: 'b', status: 'waiting', respondedAt: null, version: 1),
+        ],
+        myId: me,
+        baseline: first.nextCheckpoint,
+      );
+      expect(lobby.nextCheckpoint.ledgerHash, 'hash-a');
+    });
   });
 
   group('dữ liệu hỏng', () {

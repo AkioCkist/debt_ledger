@@ -396,13 +396,22 @@ class IntegrityService {
           'gần nhất (tạo mới hoặc được xác nhận).');
     }
 
+    // Không có snapshot server (đối soát ở sảnh) thì chỉ được giữ ledgerHash
+    // cũ khi tập giao dịch accepted y như mốc. Nếu không, mốc mới mang danh
+    // sách dòng mới nhưng vân tay cũ, và lần đối soát có server sau đó sẽ báo
+    // nhầm server_ledger_drift dù mọi thay đổi đều hợp lệ.
+    final carriedLedgerHash = baseline != null &&
+            _sameAcceptedRows(baseline, byId)
+        ? baseline.ledgerHash
+        : null;
+
     final nextCheckpoint = SyncCheckpoint(
       userId: myId,
       syncedAt: DateTime.now(),
       maxUpdatedAt: server?.maxUpdatedAt ?? LedgerMath.maxUpdatedAt(rows),
       balance: clientBalance,
       rowCount: rows.length,
-      ledgerHash: server?.ledgerHash ?? baseline?.ledgerHash,
+      ledgerHash: server?.ledgerHash ?? carriedLedgerHash,
       rows: {
         for (final entry in byId.entries)
           entry.key: RowFingerprint(
@@ -428,5 +437,28 @@ class IntegrityService {
       ),
       nextCheckpoint: nextCheckpoint,
     );
+  }
+
+  /// Tập dòng accepted (id + nội dung khoá cứng) có giống hệt mốc không —
+  /// đúng phần dữ liệu mà `ledger_hash` của server băm.
+  static bool _sameAcceptedRows(
+    SyncCheckpoint baseline,
+    Map<String, Map<String, dynamic>> byId,
+  ) {
+    final before = {
+      for (final entry in baseline.rows.entries)
+        if (LedgerMath.statusOf(entry.value.state) == 'accepted')
+          entry.key: entry.value.immutableHash,
+    };
+    final now = {
+      for (final entry in byId.entries)
+        if (entry.value['status'] == 'accepted')
+          entry.key: LedgerMath.immutableFingerprint(entry.value),
+    };
+    if (before.length != now.length) return false;
+    for (final entry in now.entries) {
+      if (before[entry.key] != entry.value) return false;
+    }
+    return true;
   }
 }
