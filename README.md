@@ -310,6 +310,26 @@ flutter build ios --dart-define-from-file=.env           # iOS (cần Xcode + m�
 flutter build web --dart-define-from-file=.env            # Web
 ```
 
+### Build và cài thẳng lên điện thoại Android (USB debugging)
+
+Cắm điện thoại đã bật **USB debugging**, kiểm tra máy đã được nhận bằng
+`flutter devices` (cắm nhiều máy thì thêm `-d <device_id>` vào các lệnh dưới).
+
+```bash
+# Build release, cài và mở app luôn (bấm q để thoát, app vẫn còn trên máy)
+flutter run --release --dart-define-from-file=.env
+
+# Hoặc: build APK rồi cài APK vừa build
+flutter build apk --dart-define-from-file=.env && flutter install
+
+# Hoặc: cài đè APK đã build bằng adb, giữ nguyên dữ liệu app
+adb install -r build/app/outputs/flutter-apk/app-release.apk
+```
+
+Nếu báo `INSTALL_FAILED_UPDATE_INCOMPATIBLE`: trên máy đang có bản ký bằng key
+khác (ví dụ bản debug). Gỡ app cũ khỏi máy rồi cài lại — gỡ sẽ mất dữ liệu local
+của app.
+
 ## Xử lý sự cố thường gặp
 
 | Triệu chứng | Nguyên nhân / cách xử lý |

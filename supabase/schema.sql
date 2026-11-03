@@ -53,6 +53,16 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
+-- Backfill: user tạo trước khi có trigger (hoặc profile bị xoá tay) sẽ không
+-- có dòng profiles, app báo PGRST116 ở sảnh. Chạy lại không đổi kết quả.
+insert into public.profiles (id, display_name, email)
+select u.id,
+       coalesce(u.raw_user_meta_data->>'display_name', split_part(u.email, '@', 1)),
+       u.email
+  from auth.users u
+ where not exists (select 1 from public.profiles p where p.id = u.id)
+on conflict (id) do nothing;
+
 -- ---------------------------------------------------------
 -- 2. TRANSACTIONS: invoice ghi nợ / trả nợ giữa 2 người
 -- ---------------------------------------------------------

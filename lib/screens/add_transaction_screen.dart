@@ -225,9 +225,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               ElevatedButton(
                 onPressed: _submitting ? null : _submit,
                 child: _submitting
-                    ? const Semantics(
+                    ? Semantics(
                         label: 'Đang gửi yêu cầu',
-                        child: SizedBox(
+                        child: const SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
