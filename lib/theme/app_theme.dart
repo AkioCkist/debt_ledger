@@ -5,21 +5,26 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  static const Color background = Color(0xFFFAFAF8);
+  static const Color background = Color(0xFFF6F5F1);
   static const Color surface = Color(0xFFFFFFFF);
-  static const Color border = Color(0xFFE7E5E1);
+  static const Color border = Color(0xFFE4E2DC);
+  static const Color divider = Color(0xFFEFEDE8);
+  static const Color muted = Color(0xFFEFEDE8); // nền chip, ô phụ
   static const Color textPrimary = Color(0xFF1C1C1A);
-  static const Color textSecondary = Color(0xFF6F6D68);
-  static const Color textFaint = Color(0xFFA6A39C);
+  static const Color textSecondary = Color(0xFF5F5D58);
+  static const Color textFaint = Color(0xFF8A8780);
 
   static const Color accent = Color(0xFF2B5D4F); // xanh rêu, hành động chính
-  static const Color accentSoft = Color(0xFFE6EEEB);
+  static const Color accentSoft = Color(0xFFE3ECE8);
+  static const Color hero = Color(0xFF1F3F36); // nền thẻ tổng quan ở sảnh
 
   static const Color positive = Color(0xFF2B6B4F); // được nhận (nợ là +)
   static const Color negative = Color(0xFFB4482F); // đang nợ (nợ là -)
 
-  static const Color waiting = Color(0xFFB5842A);
-  static const Color waitingSoft = Color(0xFFF6EEDD);
+  // Vàng đậm để chữ "chờ xác nhận" đủ tương phản trên nền sáng.
+  static const Color waiting = Color(0xFF7A5410);
+  static const Color waitingSoft = Color(0xFFFBF3E2);
+  static const Color waitingBorder = Color(0xFFE8D3A6);
   static const Color accepted = Color(0xFF2B6B4F);
   static const Color acceptedSoft = Color(0xFFE3EFE7);
   static const Color declined = Color(0xFFA6423A);
@@ -65,12 +70,12 @@ class AppTheme {
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           side: const BorderSide(color: AppColors.border, width: 1),
         ),
       ),
       dividerTheme: const DividerThemeData(
-        color: AppColors.border,
+        color: AppColors.divider,
         thickness: 1,
         space: 1,
       ),
@@ -105,11 +110,11 @@ class AppTheme {
           backgroundColor: AppColors.accent,
           foregroundColor: Colors.white,
           disabledBackgroundColor: AppColors.accent.withValues(alpha: 0.4),
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          disabledForegroundColor: Colors.white,
+          minimumSize: const Size(0, 52),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          shape: const StadiumBorder(),
           textStyle: const TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w600,
@@ -119,11 +124,11 @@ class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.textPrimary,
-          side: const BorderSide(color: AppColors.border),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          backgroundColor: AppColors.surface,
+          side: const BorderSide(color: Color(0xFFD9D6CE)),
+          minimumSize: const Size(0, 52),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          shape: const StadiumBorder(),
           textStyle: const TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w600,

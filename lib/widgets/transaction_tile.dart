@@ -12,12 +12,16 @@ class TransactionTile extends StatelessWidget {
   final String otherName;
   final VoidCallback? onTap;
 
+  /// Đặt trong một [GroupedCard]: bỏ viền và bo góc riêng của từng dòng.
+  final bool grouped;
+
   const TransactionTile({
     super.key,
     required this.tx,
     required this.myId,
     required this.otherName,
     this.onTap,
+    this.grouped = false,
   });
 
   bool get _iCreated => tx.createdBy == myId;
@@ -47,76 +51,97 @@ class TransactionTile extends StatelessWidget {
       amountColor = _iCreated ? AppColors.positive : AppColors.negative;
     }
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AppColors.accentSoft,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(_icon, size: 20, color: AppColors.accent),
+    final ({Color bg, Color fg}) iconColors = switch (tx.status) {
+      TxStatus.waiting => (bg: AppColors.waitingSoft, fg: AppColors.waiting),
+      TxStatus.declined => (bg: AppColors.declinedSoft, fg: AppColors.declined),
+      TxStatus.accepted => (bg: AppColors.accentSoft, fg: AppColors.accent),
+    };
+    final strike = tx.isDeclined ? TextDecoration.lineThrough : null;
+
+    final content = Padding(
+      padding: EdgeInsets.all(grouped ? 14 : 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: iconColors.bg,
+              borderRadius: BorderRadius.circular(12),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    tx.description.isNotEmpty ? tx.description : _label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    '$_label \u00b7 $dateLabel',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
+            child: Icon(
+              tx.isDeclined ? Icons.close_rounded : _icon,
+              size: 19,
+              color: iconColors.fg,
             ),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  CurrencyFormatter.formatSigned(tx.amount, positive: _iCreated),
+                  tx.description.isNotEmpty ? tx.description : _label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: amountColor,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                    color: tx.isDeclined
+                        ? AppColors.textSecondary
+                        : AppColors.textPrimary,
+                    decoration: strike,
                   ),
                 ),
-                const SizedBox(height: 6),
-                StatusBadge(status: tx.status),
+                const SizedBox(height: 3),
+                Text(
+                  '$_label · $dateLabel',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
               ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                CurrencyFormatter.formatSigned(tx.amount, positive: _iCreated),
+                style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                  color: amountColor,
+                  decoration: strike,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              const SizedBox(height: 6),
+              StatusBadge(status: tx.status),
+            ],
+          ),
+        ],
       ),
+    );
+
+    if (grouped) {
+      return InkWell(onTap: onTap, child: content);
+    }
+
+    return Material(
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(onTap: onTap, child: content),
     );
   }
 }

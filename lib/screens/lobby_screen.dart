@@ -14,6 +14,7 @@ import '../services/transaction_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/currency_formatter.dart';
 import '../widgets/add_contact_sheet.dart';
+import '../widgets/common.dart';
 import '../widgets/integrity_card.dart';
 import 'contact_ledger_screen.dart';
 import 'data_integrity_screen.dart';
@@ -294,6 +295,15 @@ class _LobbyScreenState extends State<LobbyScreen> {
     );
   }
 
+  /// Màu chấm nhỏ trên nút đối soát; null khi chưa có kết quả.
+  Color? get _integrityDot {
+    final report = _integrity?.report;
+    if (report == null || _checking) return null;
+    if (report.criticalCount > 0) return AppColors.negative;
+    if (report.warningCount > 0) return AppColors.waiting;
+    return AppColors.positive;
+  }
+
   @override
   Widget build(BuildContext context) {
     final me = _me;
@@ -317,28 +327,28 @@ class _LobbyScreenState extends State<LobbyScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Sảnh'),
-        actions: [
-          IconButton(
-            tooltip: 'Đối soát dữ liệu',
-            icon: const Icon(Icons.verified_user_outlined),
-            onPressed: _openIntegrityScreen,
-          ),
-          IconButton(
-            tooltip: 'Đăng xuất',
-            icon: const Icon(Icons.logout_rounded),
-            onPressed: () => _authService.signOut(),
-          ),
-          const SizedBox(width: 4),
-        ],
+      extendBody: true,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            _LobbyHeader(
+              me: me,
+              integrityDot: _integrityDot,
+              onIntegrity: _openIntegrityScreen,
+              onSignOut: () => _authService.signOut(),
+            ),
+            Expanded(child: _buildBody(me)),
+          ],
+        ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showAddContactSheet(context),
-        icon: const Icon(Icons.person_add_alt_1_rounded),
-        label: const Text('Thêm bạn nợ'),
+      bottomNavigationBar: BottomActionBar(
+        child: ElevatedButton.icon(
+          onPressed: () => showAddContactSheet(context),
+          icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
+          label: const Text('Thêm bạn nợ'),
+        ),
       ),
-      body: _buildBody(me),
     );
   }
 
@@ -366,74 +376,113 @@ class _LobbyScreenState extends State<LobbyScreen> {
       aliases: _aliases,
     );
 
+    final balances = {
+      for (final entry in book.contacts)
+        entry.profile.id: _balanceWith(entry.profile.id),
+    };
+    num owedToMe = 0;
+    num iOwe = 0;
+    for (final balance in balances.values) {
+      if (balance > 0) {
+        owedToMe += balance;
+      } else {
+        iOwe -= balance;
+      }
+    }
+
+    final waitingOnMe = [
+      for (final entry in book.contacts)
+        if (_pendingForMe(entry.profile.id) > 0) entry,
+    ];
+    final waitingCount = waitingOnMe.fold<int>(
+      0,
+      (sum, entry) => sum + _pendingForMe(entry.profile.id),
+    );
+
+    final report = _integrity?.report;
+    final integrityNeedsAttention = report != null &&
+        !_checking &&
+        (report.criticalCount > 0 || report.warningCount > 0);
+
     return RefreshIndicator(
       onRefresh: _refresh,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
         children: [
-          _MeHeader(me: me),
-          const SizedBox(height: 12),
-          IntegrityCard(
-            report: _integrity?.report,
-            checking: _checking,
-            onTap: _openIntegrityScreen,
-          ),
+          _SummaryCard(owedToMe: owedToMe, iOwe: iOwe),
+          if (integrityNeedsAttention) ...[
+            const SizedBox(height: 12),
+            IntegrityCard(
+              report: report,
+              checking: _checking,
+              onTap: _openIntegrityScreen,
+            ),
+          ],
+          if (waitingCount > 0) ...[
+            const SizedBox(height: 12),
+            _WaitingBanner(
+              count: waitingCount,
+              names: waitingOnMe.map((e) => e.displayName).toList(),
+              onTap: () => _openContact(waitingOnMe.first),
+            ),
+          ],
           const SizedBox(height: 24),
 
           if (book.incoming.isNotEmpty) ...[
-            const _SectionHeader(
-              title: 'Lời mời kết bạn nợ',
-              subtitle: 'Đồng ý thì hai bạn thấy nhau trong danh bạ',
+            const SectionLabel('Lời mời mới'),
+            GroupedCard(
+              children: [
+                for (final entry in book.incoming)
+                  _RequestRow(
+                    entry: entry,
+                    incoming: true,
+                    onAccept: () => _respond(entry, true),
+                    onDecline: () => _respond(entry, false),
+                  ),
+              ],
             ),
-            const SizedBox(height: 10),
-            ...book.incoming.map(
-              (entry) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _RequestTile(
-                  entry: entry,
-                  incoming: true,
-                  onAccept: () => _respond(entry, true),
-                  onDecline: () => _respond(entry, false),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 24),
           ],
 
           if (book.outgoing.isNotEmpty) ...[
-            const _SectionHeader(
-              title: 'Đã gửi, chờ trả lời',
-              subtitle: 'Người kia chưa phản hồi lời mời của bạn',
+            const SectionLabel('Đã gửi, chờ trả lời'),
+            GroupedCard(
+              children: [
+                for (final entry in book.outgoing)
+                  _RequestRow(entry: entry, incoming: false),
+              ],
             ),
-            const SizedBox(height: 10),
-            ...book.outgoing.map(
-              (entry) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _RequestTile(entry: entry, incoming: false),
-              ),
-            ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 24),
           ],
 
-          const _SectionHeader(
-            title: 'Danh bạ',
-            subtitle: 'Chạm vào một người để mở sổ nợ riêng',
+          SectionLabel(
+            book.contacts.isEmpty
+                ? 'Danh bạ'
+                : 'Danh bạ · ${book.contacts.length}',
+            trailing: book.contacts.isEmpty
+                ? null
+                : const Text(
+                    'Giữ để đổi tên',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
           ),
-          const SizedBox(height: 10),
           if (book.contacts.isEmpty)
             const _EmptyContacts()
           else
-            ...book.contacts.map(
-              (entry) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _ContactTile(
-                  entry: entry,
-                  balance: _balanceWith(entry.profile.id),
-                  pendingForMe: _pendingForMe(entry.profile.id),
-                  onTap: () => _openContact(entry),
-                  onEditAlias: () => _editAlias(entry),
-                ),
-              ),
+            GroupedCard(
+              children: [
+                for (final entry in book.contacts)
+                  _ContactRow(
+                    entry: entry,
+                    balance: balances[entry.profile.id] ?? 0,
+                    pendingForMe: _pendingForMe(entry.profile.id),
+                    onTap: () => _openContact(entry),
+                    onEditAlias: () => _editAlias(entry),
+                  ),
+              ],
             ),
         ],
       ),
@@ -456,62 +505,361 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 }
 
-class _MeHeader extends StatelessWidget {
+class _LobbyHeader extends StatelessWidget {
   final AppProfile me;
+  final Color? integrityDot;
+  final VoidCallback onIntegrity;
+  final VoidCallback onSignOut;
 
-  const _MeHeader({required this.me});
+  const _LobbyHeader({
+    required this.me,
+    required this.integrityDot,
+    required this.onIntegrity,
+    required this.onSignOut,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        CircleAvatar(
-          radius: 20,
-          backgroundColor: AppColors.accentSoft,
-          child: Text(
-            me.initial,
-            style: const TextStyle(
-              color: AppColors.accent,
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+      child: Row(
+        children: [
+          InitialAvatar(initial: me.initial, seed: me.id),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Xin chào',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                Text(
+                  me.displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                me.displayName,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+          _CircleIconButton(
+            tooltip: 'Đối soát dữ liệu',
+            icon: Icons.verified_user_outlined,
+            color: AppColors.accent,
+            dot: integrityDot,
+            onPressed: onIntegrity,
+          ),
+          const SizedBox(width: 8),
+          PopupMenuButton<String>(
+            tooltip: 'Tài khoản',
+            position: PopupMenuPosition.under,
+            onSelected: (value) {
+              if (value == 'logout') onSignOut();
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem<String>(
+                enabled: false,
+                child: Text(
+                  me.email,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ),
-              Text(
-                me.email,
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  color: AppColors.textSecondary,
+              const PopupMenuItem<String>(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout_rounded, size: 20),
+                    SizedBox(width: 12),
+                    Text('Đăng xuất'),
+                  ],
                 ),
               ),
             ],
+            child: const _CircleIconButton(
+              icon: Icons.more_horiz_rounded,
+              color: AppColors.textPrimary,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-class _ContactTile extends StatelessWidget {
+/// Nút tròn viền mảnh 44px. Không có [onPressed] thì chỉ vẽ (dùng làm
+/// child của PopupMenuButton, nút đó tự lo phần bấm).
+class _CircleIconButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String? tooltip;
+  final Color? dot;
+  final VoidCallback? onPressed;
+
+  const _CircleIconButton({
+    required this.icon,
+    required this.color,
+    this.tooltip,
+    this.dot,
+    this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final circle = Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Icon(icon, size: 20, color: color),
+          if (dot != null)
+            Positioned(
+              top: 9,
+              right: 9,
+              child: Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: dot,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.surface, width: 2),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+
+    if (onPressed == null) return circle;
+    return Tooltip(
+      message: tooltip ?? '',
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onPressed,
+          child: circle,
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryCard extends StatelessWidget {
+  final num owedToMe;
+  final num iOwe;
+
+  const _SummaryCard({required this.owedToMe, required this.iOwe});
+
+  @override
+  Widget build(BuildContext context) {
+    final net = owedToMe - iOwe;
+    final String caption;
+    if (net > 0) {
+      caption = 'Mọi người đang nợ bạn nhiều hơn bạn nợ họ';
+    } else if (net < 0) {
+      caption = 'Bạn đang nợ nhiều hơn được nợ';
+    } else {
+      caption = 'Không ai nợ ai';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.hero,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Số dư ròng của bạn',
+            style: TextStyle(fontSize: 13, color: Color(0xCCFFFFFF)),
+          ),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              net == 0
+                  ? CurrencyFormatter.format(0)
+                  : CurrencyFormatter.formatSigned(net, positive: net > 0),
+              style: const TextStyle(
+                fontSize: 34,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.8,
+                color: Colors.white,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            caption,
+            style: const TextStyle(fontSize: 13, color: Color(0xCCFFFFFF)),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: _SummaryTile(label: 'Được nợ', amount: owedToMe),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _SummaryTile(label: 'Đang nợ', amount: iOwe),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryTile extends StatelessWidget {
+  final String label;
+  final num amount;
+
+  const _SummaryTile({required this.label, required this.amount});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0x1AFFFFFF),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: Color(0xCCFFFFFF)),
+          ),
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              CurrencyFormatter.format(amount),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WaitingBanner extends StatelessWidget {
+  final int count;
+  final List<String> names;
+  final VoidCallback onTap;
+
+  const _WaitingBanner({
+    required this.count,
+    required this.names,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final from = names.length <= 2
+        ? names.join(' và ')
+        : '${names.take(2).join(', ')} và ${names.length - 2} người khác';
+
+    return Material(
+      color: AppColors.waitingSoft,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: const BorderSide(color: AppColors.waitingBorder),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF3E3BF),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.schedule_rounded,
+                  size: 19,
+                  color: AppColors.waiting,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$count yêu cầu chờ bạn xác nhận',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      'Từ $from',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: Color(0xFF6B5A35),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.waiting,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ContactRow extends StatelessWidget {
   final ContactEntry entry;
   final num balance;
   final int pendingForMe;
   final VoidCallback onTap;
   final VoidCallback onEditAlias;
 
-  const _ContactTile({
+  const _ContactRow({
     required this.entry,
     required this.balance,
     required this.pendingForMe,
@@ -521,43 +869,31 @@ class _ContactTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = entry.displayName;
-
     final String subtitle;
+    final Color subtitleColor;
     if (pendingForMe > 0) {
-      subtitle = '$pendingForMe yêu cầu đang chờ bạn xác nhận';
+      subtitle = '$pendingForMe yêu cầu chờ bạn';
+      subtitleColor = AppColors.waiting;
     } else if (balance == 0) {
       subtitle = 'Đã cân bằng';
-    } else if (balance > 0) {
-      subtitle = '$name đang nợ bạn ${CurrencyFormatter.format(balance)}';
+      subtitleColor = AppColors.textSecondary;
     } else {
-      subtitle = 'Bạn đang nợ $name ${CurrencyFormatter.format(balance.abs())}';
+      subtitle = balance > 0 ? 'Đang nợ bạn' : 'Bạn đang nợ';
+      subtitleColor = AppColors.textSecondary;
     }
 
-    return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(16),
+    return Semantics(
+      onLongPressHint: 'Đổi tên riêng',
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
-          ),
+        onLongPress: onEditAlias,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: AppColors.accentSoft,
-                child: Text(
-                  entry.profile.initial,
-                  style: const TextStyle(
-                    color: AppColors.accent,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+              InitialAvatar(
+                initial: entry.profile.initial,
+                seed: entry.profile.id,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -565,7 +901,9 @@ class _ContactTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      name,
+                      entry.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -576,23 +914,34 @@ class _ContactTile extends StatelessWidget {
                       subtitle,
                       style: TextStyle(
                         fontSize: 12.5,
-                        color: pendingForMe > 0
-                            ? AppColors.waiting
-                            : AppColors.textSecondary,
+                        color: subtitleColor,
+                        fontWeight: pendingForMe > 0
+                            ? FontWeight.w500
+                            : FontWeight.w400,
                       ),
                     ),
                   ],
                 ),
               ),
-              IconButton(
-                tooltip: 'Sửa tên riêng',
-                icon: const Icon(
-                  Icons.edit_outlined,
-                  size: 18,
-                  color: AppColors.textFaint,
+              const SizedBox(width: 8),
+              if (balance == 0)
+                const Text(
+                  '0 đ',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textSecondary,
+                  ),
+                )
+              else
+                Text(
+                  CurrencyFormatter.formatSigned(balance, positive: balance > 0),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: balance > 0 ? AppColors.positive : AppColors.negative,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
-                onPressed: onEditAlias,
-              ),
             ],
           ),
         ),
@@ -601,13 +950,13 @@ class _ContactTile extends StatelessWidget {
   }
 }
 
-class _RequestTile extends StatelessWidget {
+class _RequestRow extends StatelessWidget {
   final ContactEntry entry;
   final bool incoming;
   final VoidCallback? onAccept;
   final VoidCallback? onDecline;
 
-  const _RequestTile({
+  const _RequestRow({
     required this.entry,
     required this.incoming,
     this.onAccept,
@@ -616,115 +965,63 @@ class _RequestTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: incoming ? AppColors.accent : AppColors.border,
-        ),
-      ),
-      child: Column(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      child: Row(
         children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: AppColors.accentSoft,
-                child: Text(
-                  entry.profile.initial,
-                  style: const TextStyle(
-                    color: AppColors.accent,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      entry.profile.displayName,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      incoming
-                          ? 'Muốn kết nối với bạn'
-                          : 'Đang chờ họ đồng ý',
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          InitialAvatar(
+            initial: entry.profile.initial,
+            seed: entry.profile.id,
           ),
-          if (incoming) ...[
-            const SizedBox(height: 12),
-            Row(
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: onDecline,
-                    child: const Text('Từ chối'),
+                Text(
+                  entry.profile.displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: onAccept,
-                    child: const Text('Đồng ý'),
+                const SizedBox(height: 2),
+                Text(
+                  incoming ? 'Muốn kết nối với bạn' : 'Đang chờ họ đồng ý',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.textSecondary,
                   ),
                 ),
               ],
             ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final String? subtitle;
-
-  const _SectionHeader({required this.title, this.subtitle});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 2, top: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 15.5,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
           ),
-          if (subtitle != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                subtitle!,
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  color: AppColors.textSecondary,
-                ),
+          if (incoming) ...[
+            IconButton(
+              tooltip: 'Từ chối',
+              onPressed: onDecline,
+              style: IconButton.styleFrom(
+                side: const BorderSide(color: AppColors.border),
+                fixedSize: const Size(44, 44),
+              ),
+              icon: const Icon(
+                Icons.close_rounded,
+                size: 20,
+                color: AppColors.textSecondary,
               ),
             ),
+            const SizedBox(width: 6),
+            ElevatedButton(
+              onPressed: onAccept,
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(0, 44),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+              ),
+              child: const Text('Đồng ý'),
+            ),
+          ],
         ],
       ),
     );
@@ -741,7 +1038,7 @@ class _EmptyContacts extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.border),
       ),
       child: const Column(
@@ -763,7 +1060,7 @@ class _EmptyContacts extends StatelessWidget {
           Text(
             'Nhấn "Thêm bạn nợ" để lấy mã của bạn, hoặc nhập mã của người kia.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: AppColors.textFaint),
+            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
           ),
         ],
       ),

@@ -10,10 +10,14 @@ class BalanceCard extends StatelessWidget {
   final num balance;
   final String otherName;
 
+  /// Số giao dịch đã xác nhận, hiện dưới số dư. Null thì không hiện.
+  final int? transactionCount;
+
   const BalanceCard({
     super.key,
     required this.balance,
     required this.otherName,
+    this.transactionCount,
   });
 
   @override
@@ -31,33 +35,55 @@ class BalanceCard extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppColors.border),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             headline,
+            textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 14,
               color: AppColors.textSecondary,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            CurrencyFormatter.format(balance.abs()),
-            style: TextStyle(
-              fontSize: 34,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.5,
-              color: amountColor,
+          const SizedBox(height: 6),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              CurrencyFormatter.format(balance.abs()),
+              style: TextStyle(
+                fontSize: 36,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.8,
+                color: amountColor,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
             ),
           ),
+          if (transactionCount != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppColors.muted,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                '$transactionCount giao dịch đã xác nhận',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

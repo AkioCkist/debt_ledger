@@ -7,6 +7,7 @@ import '../services/transaction_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/currency_formatter.dart';
 import '../utils/thousands_input_formatter.dart';
+import '../widgets/common.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final AppProfile me;
@@ -95,161 +96,208 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     }
   }
 
+  static const _quickAmounts = [50000, 100000, 200000, 500000];
+
+  /// Cộng dồn vào số đang nhập: bấm "+100K" hai lần là 200.000.
+  void _addAmount(int value) {
+    final next = (_amount ?? 0) + value;
+    _amountCtrl.value = ThousandsInputFormatter().formatEditUpdate(
+      TextEditingValue.empty,
+      TextEditingValue(text: next.toString()),
+    );
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Thêm giao dịch')),
-      body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-            children: [
-              Text(
-                'Gửi cho ${widget.otherName}',
-                style: const TextStyle(
-                  fontSize: 13.5,
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w500,
-                ),
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Thêm giao dịch'),
+            Text(
+              'Gửi cho ${widget.otherName}',
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w400,
+                color: AppColors.textSecondary,
               ),
-              const SizedBox(height: 6),
-              const Text(
-                'Chọn đúng ý nghĩa của giao dịch. Số dư chỉ đổi sau khi người kia xác nhận.',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  color: AppColors.textSecondary,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 14),
-              _TypeSelector(
-                value: _type,
-                otherName: widget.otherName,
-                onChanged: (v) => setState(() => _type = v),
-              ),
-              const SizedBox(height: 20),
-              TextFormField(
-                controller: _amountCtrl,
-                keyboardType: TextInputType.number,
-                inputFormatters: [ThousandsInputFormatter()],
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                ),
-                decoration: const InputDecoration(
-                  labelText: 'Số tiền (VND) *',
-                  hintText: '0',
-                ),
-                onChanged: (_) => setState(() {}),
-                validator: (value) {
-                  final parsed = CurrencyFormatter.parse(value ?? '');
-                  if (parsed == null || parsed <= 0) {
-                    return 'Nhập số tiền hợp lệ';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _descCtrl,
-                maxLines: 3,
-                maxLength: 140,
-                decoration: InputDecoration(
-                  labelText: 'Mô tả *',
-                  hintText: _type == TxType.debt
-                      ? 'Ví dụ: Ăn trưa ngày 12/9'
-                      : 'Ví dụ: Chuyển khoản trả bớt nợ',
-                  alignLabelWithHint: true,
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Vui lòng nhập mô tả ngắn gọn';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              _BalancePreview(
-                currentBalance: widget.currentBalance,
-                actionAmount: (_amount ?? 0) > 0 ? _amount! : null,
-                actionDescription: _actionDescription,
-                otherName: widget.otherName,
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.accentSoft,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.info_outline_rounded,
-                      size: 18,
-                      color: AppColors.accent,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        _type == TxType.debt
-                            ? '${widget.otherName} sẽ xác nhận rằng họ nợ bạn khoản này.'
-                            : '${widget.otherName} sẽ xác nhận rằng bạn đã trả họ khoản này.',
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          color: AppColors.textPrimary,
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              if (_submitError != null) ...[
-                Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    _submitError!,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      color: AppColors.negative,
-                      fontWeight: FontWeight.w600,
-                    ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: BottomActionBar(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_submitError != null) ...[
+              Semantics(
+                liveRegion: true,
+                child: Text(
+                  _submitError!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.negative,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 10),
-              ],
-              ElevatedButton(
-                onPressed: _submitting ? null : _submit,
-                child: _submitting
-                    ? Semantics(
-                        label: 'Đang gửi yêu cầu',
-                        child: const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.4,
-                            color: Colors.white,
+              ),
+              const SizedBox(height: 10),
+            ],
+            const Text(
+              'Số dư chỉ đổi sau khi người kia xác nhận',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: _submitting ? null : _submit,
+              child: _submitting
+                  ? Semantics(
+                      label: 'Đang gửi yêu cầu',
+                      child: const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.4,
+                          color: Colors.white,
+                        ),
+                      ),
+                    )
+                  : Text(
+                      _type == TxType.debt
+                          ? 'Gửi yêu cầu ghi nợ'
+                          : 'Gửi yêu cầu trả nợ',
+                    ),
+            ),
+          ],
+        ),
+      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          children: [
+            _TypeSelector(
+              value: _type,
+              otherName: widget.otherName,
+              onChanged: (v) => setState(() => _type = v),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                children: [
+                  const Text(
+                    'Số tiền',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  TextFormField(
+                    controller: _amountCtrl,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [ThousandsInputFormatter()],
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 38,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -1,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                    decoration: const InputDecoration(
+                      hintText: '0',
+                      suffixText: 'đ',
+                      suffixStyle: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                      filled: false,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      errorBorder: InputBorder.none,
+                      focusedErrorBorder: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(vertical: 6),
+                      errorStyle: TextStyle(height: 1.2),
+                    ),
+                    onChanged: (_) => setState(() {}),
+                    validator: (value) {
+                      final parsed = CurrencyFormatter.parse(value ?? '');
+                      if (parsed == null || parsed <= 0) {
+                        return 'Nhập số tiền hợp lệ';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final value in _quickAmounts)
+                        ActionChip(
+                          label: Text('+${value ~/ 1000}K'),
+                          onPressed: () => _addAmount(value),
+                          backgroundColor: AppColors.background,
+                          side: const BorderSide(color: AppColors.border),
+                          shape: const StadiumBorder(),
+                          labelStyle: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textPrimary,
                           ),
                         ),
-                      )
-                    : Text(
-                        _type == TxType.debt
-                            ? 'Gửi yêu cầu ghi nợ'
-                            : 'Gửi yêu cầu trả nợ',
-                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _descCtrl,
+              maxLines: 2,
+              minLines: 1,
+              maxLength: 140,
+              decoration: InputDecoration(
+                labelText: 'Mô tả *',
+                hintText: _type == TxType.debt
+                    ? 'Ví dụ: Ăn trưa ngày 12/9'
+                    : 'Ví dụ: Chuyển khoản trả bớt nợ',
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Vui lòng nhập mô tả ngắn gọn';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 8),
+            _BalancePreview(
+              currentBalance: widget.currentBalance,
+              actionAmount: (_amount ?? 0) > 0 ? _amount! : null,
+              actionDescription: _actionDescription,
+              otherName: widget.otherName,
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
+/// Hai lựa chọn viết thành câu, để khỏi phải nhớ "ghi nợ" là chiều nào.
 class _TypeSelector extends StatelessWidget {
   final TxType value;
   final String otherName;
@@ -263,43 +311,46 @@ class _TypeSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _TypeOption(
-            label: 'Ghi nợ',
-            description: '$otherName nợ bạn',
-            icon: Icons.arrow_outward_rounded,
-            selected: value == TxType.debt,
-            onTap: () => onChanged(TxType.debt),
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAE8E2),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _TypeOption(
+              label: '$otherName nợ tôi',
+              semanticsLabel: 'Ghi nợ: $otherName nợ bạn',
+              selected: value == TxType.debt,
+              onTap: () => onChanged(TxType.debt),
+            ),
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _TypeOption(
-            label: 'Trả nợ',
-            description: 'Bạn đã trả $otherName',
-            icon: Icons.check_circle_outline_rounded,
-            selected: value == TxType.payment,
-            onTap: () => onChanged(TxType.payment),
+          const SizedBox(width: 4),
+          Expanded(
+            child: _TypeOption(
+              label: 'Tôi trả $otherName',
+              semanticsLabel: 'Trả nợ: bạn đã trả $otherName',
+              selected: value == TxType.payment,
+              onTap: () => onChanged(TxType.payment),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
 class _TypeOption extends StatelessWidget {
   final String label;
-  final String description;
-  final IconData icon;
+  final String semanticsLabel;
   final bool selected;
   final VoidCallback onTap;
 
   const _TypeOption({
     required this.label,
-    required this.description,
-    required this.icon,
+    required this.semanticsLabel,
     required this.selected,
     required this.onTap,
   });
@@ -310,51 +361,38 @@ class _TypeOption extends StatelessWidget {
       button: true,
       selected: selected,
       inMutuallyExclusiveGroup: true,
-      label: '$label: $description',
-      child: InkWell(
+      label: semanticsLabel,
+      excludeSemantics: true,
+      child: GestureDetector(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+          height: 46,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
-            color: selected ? AppColors.accent : AppColors.surface,
+            color: selected ? AppColors.surface : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected ? AppColors.accent : AppColors.border,
-            ),
+            boxShadow: selected
+                ? const [
+                    BoxShadow(
+                      color: Color(0x14000000),
+                      blurRadius: 2,
+                      offset: Offset(0, 1),
+                    ),
+                  ]
+                : null,
           ),
-          child: Column(
-            children: [
-              Icon(
-                selected ? Icons.check_circle_rounded : icon,
-                size: 20,
-                color: selected ? Colors.white : AppColors.textSecondary,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w700,
-                  color: selected ? Colors.white : AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                description,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 11.5,
-                  height: 1.25,
-                  color: selected
-                      ? Colors.white.withValues(alpha: 0.85)
-                      : AppColors.textSecondary,
-                ),
-              ),
-            ],
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              color: selected ? AppColors.textPrimary : AppColors.textSecondary,
+            ),
           ),
         ),
       ),
@@ -389,9 +427,8 @@ class _BalancePreview extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        color: amount == null ? AppColors.muted : AppColors.acceptedSoft,
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
